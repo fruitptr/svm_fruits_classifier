@@ -6,6 +6,9 @@ from sklearn.preprocessing import StandardScaler
 from PIL import Image
 from rembg import remove
 from io import BytesIO
+from clarifai_grpc.channel.clarifai_channel import ClarifaiChannel
+from clarifai_grpc.grpc.api import resources_pb2, service_pb2, service_pb2_grpc
+from clarifai_grpc.grpc.api.status import status_code_pb2
 
 model = pickle.load(open('fruits_classification_model2.pkl', 'rb'))
 scaler = pickle.load(open('scalerinstance.pkl', 'rb'))
@@ -50,6 +53,9 @@ def perform_inference(uploaded_image, remove_background):
     return predicted_fruit, new_img
 
 def eda_section():
+    st.sidebar.subheader("EDA")
+    st.sidebar.write("This section highlights the step that we took while performing Exploratory Data Analysis. It displays the dataset images and color distributions mainly.")
+
     st.subheader("EDA")
 
     st.write("First, we checked the number of training and testing samples of all our fruits.")
@@ -104,6 +110,9 @@ def eda_section():
     st.info("As we can see from the images of Coconut and Pineapple, they appear to be very similar, which suggests that this classification task will not be easy and thus we would likely need to use a non-linear kernel to separate the classes well.", icon="ℹ️")
 
 def processing_training_section():
+    st.sidebar.subheader("Processing/Training")
+    st.sidebar.write("This section highlights the steps that we undertook when pre-processing the data and subsequently training our model. Code is also provided.")
+
     st.subheader("Processing/Training")
 
     st.write("First, we retrieved all the images from our dataset and placed them into appropriate training and test sets.")
@@ -230,19 +239,104 @@ def processing_training_section():
         pickle.dump(scaler, file)
     """, language="python")
 
+def perform_batch_inference(uploaded_images, remove_background):
+    predictions = []
+
+    for uploaded_image in uploaded_images:
+        image = cv2.imdecode(np.frombuffer(uploaded_image.read(), np.uint8), 1)
+
+        if remove_background:
+            image = remove(image)
+            trans_mask = image[:,:,3] == 0
+            image = image.copy()
+            image[trans_mask] = [255, 255, 255, 255]
+            new_img = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+        else:
+            new_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        resized_image = cv2.resize(new_img, (100, 100))
+        flattened_image = resized_image.flatten()
+        scaled_image = scaler.transform([flattened_image])
+        predicted_index = model.predict(scaled_image)[0]
+        predicted_fruit = fruit_mapping.get(predicted_index, 'Unknown')
+        predictions.append((predicted_fruit, new_img))
+
+    return predictions
+
+def generate_recipe(fruits):
+    fruits_str = ",".join(str(element) for element in fruits)
+    original_string = """{text}
+
+    The text provided above is a list of fruits that I have. I want to create a cocktail out of these fruits. Please write me a recipe for that cocktail, making it detailed enough with how many proportions I need of everything etc. Give me the name of the cocktail at the start as well."""
+
+    prompt = original_string.replace("{text}", fruits_str)
+
+    PAT = st.secrets["pat"]
+    USER_ID = 'openai'
+    APP_ID = 'chat-completion'
+    MODEL_ID = 'GPT-4'
+    MODEL_VERSION_ID = st.secrets["mvid"]
+    RAW_TEXT = prompt
+
+    channel = ClarifaiChannel.get_grpc_channel()
+    stub = service_pb2_grpc.V2Stub(channel)
+
+    metadata = (('authorization', 'Key ' + PAT),)
+
+    userDataObject = resources_pb2.UserAppIDSet(user_id=USER_ID, app_id=APP_ID)
+
+    post_model_outputs_response = stub.PostModelOutputs(
+        service_pb2.PostModelOutputsRequest(
+            user_app_id=userDataObject,
+            model_id=MODEL_ID,
+            version_id=MODEL_VERSION_ID,
+            inputs=[
+                resources_pb2.Input(
+                    data=resources_pb2.Data(
+                        text=resources_pb2.Text(
+                            raw=RAW_TEXT
+                        )
+                    )
+                )
+            ]
+        ),
+        metadata=metadata
+    )
+    if post_model_outputs_response.status.code != status_code_pb2.SUCCESS:
+        print(post_model_outputs_response.status)
+        raise Exception(f"Post model outputs failed, status: {post_model_outputs_response.status.description}")
+
+    output = post_model_outputs_response.outputs[0]
+
+    result = output.data.text.raw
+
+    return result
+
 def inference_section():
     st.sidebar.subheader("Inference")
-    st.sidebar.write("Inference section content goes here.")
-    st.title("Fruits Classification using SVM - ML Project")
+    st.sidebar.write("This section displays the application of our model by giving a recipe for a cocktail from the predicted fruits.")
+    st.title("Cocktail Recipe Generator - ML Project")
+    st.subheader("Using SVM and GPT4", divider="rainbow")
+    st.write("Input images of fruits (Bananas, Coconuts, Peaches, Pineapples) and get a cocktail recipie involving those fruits.")
 
-    uploaded_image = st.file_uploader(label="Choose a file", type=['png', 'jpg'])
+    uploaded_images = st.file_uploader(label="Choose multiple files", type=['png', 'jpg'], accept_multiple_files=True)
     remove_background = st.checkbox("Remove Background", value=False)
 
-    if uploaded_image is not None:
+    if uploaded_images:
         if st.button('Predict'):
-            predicted_fruit, image = perform_inference(uploaded_image, remove_background)
-            st.success(f'This is a {predicted_fruit}')
-            st.image(image, caption='Uploaded Image')
+            predictions = perform_batch_inference(uploaded_images, remove_background)
+            
+            for i, (predicted_fruit, image) in enumerate(predictions):
+                st.success(f'Image {i + 1}: This is a {predicted_fruit}')
+                st.image(image, caption=f'Uploaded Image {i + 1}')
+
+            st.divider()
+
+            if predictions:
+                st.subheader(":tropical_drink: Cocktail recipe:", divider="rainbow")
+                recipe = generate_recipe(predictions)
+                st.write(recipe)
+
 
 def main():
     selected_section = st.sidebar.radio("Select a section", ["EDA", "Processing/Training", "Inference"])
