@@ -284,7 +284,7 @@ def generate_recipe(fruits):
     PAT = st.secrets["pat"]
     USER_ID = 'openai'
     APP_ID = 'chat-completion'
-    MODEL_ID = 'GPT-4'
+    MODEL_ID = st.secrets["mid"]
     MODEL_VERSION_ID = st.secrets["mvid"]
     RAW_TEXT = prompt
 
