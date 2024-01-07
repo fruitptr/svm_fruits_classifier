@@ -251,7 +251,8 @@ def perform_batch_inference(uploaded_images, remove_background):
             trans_mask = image[:,:,3] == 0
             image = image.copy()
             image[trans_mask] = [255, 255, 255, 255]
-            new_img = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+            temp_img = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+            new_img = cv2.cvtColor(temp_img, cv2.COLOR_BGR2RGB)
         else:
             new_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
