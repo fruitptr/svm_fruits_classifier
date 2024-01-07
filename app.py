@@ -271,13 +271,13 @@ def generate_recipe(fruits):
 
     Above provided are the fruits (or a single fruit) that I have. I want to create a cocktail out of these fruits. Please write me a recipe for that cocktail, making it detailed enough with how many proportions I need of everything etc. Give me the name of the cocktail at the start as well.
     The format of your response should be the following. Don't write anything else in your response. Make sure the headings are bold and the steps are numbered and the ingredients are in bullet points.:
-    Cocktail:<Insert name here>
+    <BOLD>Cocktail:</BOLD><Insert name here>
     
-    Ingredients:
+    <BOLD>Ingredients:</BOLD>
     <Insert a list of ingredients here>
     
-    Recipe:
-    <Insert the steps to prepare that cocktail>"""
+    <BOLD>Recipe:</BOLD>
+    <Insert the steps to prepare that cocktail. Make sure they are detailed enough with how many proportions I need of everything etc>"""
 
     prompt = original_string.replace("{text}", fruits_str)
 
