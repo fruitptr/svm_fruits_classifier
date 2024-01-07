@@ -40,7 +40,8 @@ def perform_inference(uploaded_image, remove_background):
         trans_mask = image[:,:,3] == 0
         image = image.copy()
         image[trans_mask] = [255, 255, 255, 255]
-        new_img = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+        temp_img = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+        new_img = cv2.cvtColor(temp_img, cv2.COLOR_BGR2RGB)
     else:
         new_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -265,9 +266,17 @@ def perform_batch_inference(uploaded_images, remove_background):
 
 def generate_recipe(fruits):
     fruits_str = ",".join(str(element) for element in fruits)
-    original_string = """{text}
+    original_string = """Fruit(s): {text}
 
-    The text provided above is a list of fruits that I have. I want to create a cocktail out of these fruits. Please write me a recipe for that cocktail, making it detailed enough with how many proportions I need of everything etc. Give me the name of the cocktail at the start as well."""
+    Above provided are the fruits (or a single fruit) that I have. I want to create a cocktail out of these fruits. Please write me a recipe for that cocktail, making it detailed enough with how many proportions I need of everything etc. Give me the name of the cocktail at the start as well.
+    The format of your response should be the following. Don't write anything else in your response. Make sure the headings are bold and the steps are numbered and the ingredients are in bullet points.:
+    Cocktail:<Insert name here>
+    
+    Ingredients:
+    <Insert a list of ingredients here>
+    
+    Recipe:
+    <Insert the steps to prepare that cocktail>"""
 
     prompt = original_string.replace("{text}", fruits_str)
 
