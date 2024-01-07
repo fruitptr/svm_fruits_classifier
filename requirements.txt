@@ -1,5 +1,5 @@
 streamlit
-opencv-python==4.8.0.76
+opencv-python-headless
 scikit-learn==1.2.2
 numpy==1.23.5
 rembg
